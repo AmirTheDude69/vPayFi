@@ -2,10 +2,15 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+export function Providers({
+  children,
+  appId,
+}: {
+  children: React.ReactNode;
+  appId: string;
+}) {
   if (!appId) {
-    throw new Error("Missing NEXT_PUBLIC_PRIVY_APP_ID.");
+    throw new Error("Missing Privy app ID.");
   }
 
   return (

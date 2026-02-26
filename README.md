@@ -19,12 +19,15 @@ Accounting dashboard for vPay co-founders with:
 Create `.env.local` from `.env.example` and fill:
 
 ```bash
+PRIVY_APP_ID=
 NEXT_PUBLIC_PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 PRIVY_VERIFICATION_KEY=
 DATABASE_URL=
 DIRECT_URL=
 ```
+
+`PRIVY_APP_ID` is required. `NEXT_PUBLIC_PRIVY_APP_ID` is optional.
 
 ## Local setup
 

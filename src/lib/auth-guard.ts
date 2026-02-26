@@ -7,7 +7,7 @@ let privyClient: PrivyClient | null = null;
 function getPrivyClient(): PrivyClient {
   if (privyClient) return privyClient;
 
-  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? process.env.PRIVY_APP_ID;
   const appSecret = process.env.PRIVY_APP_SECRET;
   const verificationKey = process.env.PRIVY_VERIFICATION_KEY;
   if (!appId || !appSecret || !verificationKey) {
