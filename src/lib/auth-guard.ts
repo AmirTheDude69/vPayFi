@@ -1,26 +1,34 @@
-import { PrivyClient } from "@privy-io/node";
+import { type VerifyAccessTokenResponse, PrivyClient } from "@privy-io/node";
 
 import { prisma } from "@/lib/prisma";
 
-let privyClient: PrivyClient | null = null;
+let privyClientWithOverride: PrivyClient | null = null;
+let privyClientWithRemoteJwks: PrivyClient | null = null;
 
-function getPrivyClient(): PrivyClient {
-  if (privyClient) return privyClient;
+function getPrivyClient(useVerificationKeyOverride: boolean): PrivyClient {
+  if (useVerificationKeyOverride && privyClientWithOverride) return privyClientWithOverride;
+  if (!useVerificationKeyOverride && privyClientWithRemoteJwks) return privyClientWithRemoteJwks;
 
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? process.env.PRIVY_APP_ID;
   const appSecret = process.env.PRIVY_APP_SECRET;
-  const verificationKey = process.env.PRIVY_VERIFICATION_KEY;
-  if (!appId || !appSecret || !verificationKey) {
+  if (!appId || !appSecret) {
     throw new Error("Privy server env vars are missing.");
   }
 
-  privyClient = new PrivyClient({
+  const verificationKey = process.env.PRIVY_VERIFICATION_KEY;
+  const client = new PrivyClient({
     appId,
     appSecret,
-    jwtVerificationKey: verificationKey,
+    ...(useVerificationKeyOverride && verificationKey ? { jwtVerificationKey: verificationKey } : {}),
   });
 
-  return privyClient;
+  if (useVerificationKeyOverride) {
+    privyClientWithOverride = client;
+  } else {
+    privyClientWithRemoteJwks = client;
+  }
+
+  return client;
 }
 
 function getBearerToken(request: Request): string | null {
@@ -65,9 +73,21 @@ export async function getAuthorizedEmailFromRequest(request: Request): Promise<s
 
   let userEmail: string | null = null;
   try {
-    const privy = getPrivyClient();
-    const claims = await privy.utils().auth().verifyAccessToken(accessToken);
-    const user = await privy.users()._get(claims.user_id);
+    const privyPrimary = getPrivyClient(true);
+    let claims: VerifyAccessTokenResponse;
+    try {
+      claims = await privyPrimary.utils().auth().verifyAccessToken(accessToken);
+    } catch (primaryError) {
+      if (!process.env.PRIVY_VERIFICATION_KEY) {
+        throw primaryError;
+      }
+
+      const privyFallback = getPrivyClient(false);
+      claims = await privyFallback.utils().auth().verifyAccessToken(accessToken);
+      console.warn("Privy auth verification succeeded via JWKS fallback.");
+    }
+
+    const user = await privyPrimary.users()._get(claims.user_id);
     userEmail = getEmailFromLinkedAccounts(user.linked_accounts);
   } catch (error) {
     console.error("Privy auth verification failed:", error);
