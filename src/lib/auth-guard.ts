@@ -31,9 +31,32 @@ function getBearerToken(request: Request): string | null {
   return token;
 }
 
-function getEmailFromLinkedAccounts(linkedAccounts: Array<{ type: string; address?: string }>): string | null {
-  const email = linkedAccounts.find((account) => account.type === "email")?.address;
-  return email ? email.toLowerCase() : null;
+interface LinkedAccountLike {
+  type?: string;
+  address?: string | null;
+  email?: string | null;
+}
+
+function normalizeEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getEmailFromLinkedAccounts(linkedAccounts: Array<LinkedAccountLike>): string | null {
+  for (const account of linkedAccounts) {
+    if (account.type === "email") {
+      const normalized = normalizeEmail(account.address);
+      if (normalized) return normalized;
+    }
+  }
+
+  for (const account of linkedAccounts) {
+    const normalized = normalizeEmail(account.email);
+    if (normalized) return normalized;
+  }
+
+  return null;
 }
 
 export async function getAuthorizedEmailFromRequest(request: Request): Promise<string | null> {
@@ -46,17 +69,26 @@ export async function getAuthorizedEmailFromRequest(request: Request): Promise<s
     const claims = await privy.utils().auth().verifyAccessToken(accessToken);
     const user = await privy.users()._get(claims.user_id);
     userEmail = getEmailFromLinkedAccounts(user.linked_accounts);
-  } catch {
+  } catch (error) {
+    console.error("Privy auth verification failed:", error);
     return null;
   }
 
-  if (!userEmail) return null;
+  if (!userEmail) {
+    console.warn("Privy user verified but no email was found in linked accounts.");
+    return null;
+  }
 
-  const allowed = await prisma.allowedEmail.findUnique({
-    where: { email: userEmail },
+  const allowed = await prisma.allowedEmail.findFirst({
+    where: {
+      email: { equals: userEmail, mode: "insensitive" },
+    },
     select: { isActive: true },
   });
 
-  if (!allowed?.isActive) return null;
+  if (!allowed?.isActive) {
+    console.warn("Whitelist check failed for email:", userEmail);
+    return null;
+  }
   return userEmail;
 }
