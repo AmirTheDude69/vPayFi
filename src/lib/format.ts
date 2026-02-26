@@ -30,3 +30,11 @@ export function isoDateFromDateInput(value: string): string {
   }
   return parsed.toISOString().slice(0, 10);
 }
+
+export function isoDateToUtcDate(value: string): Date {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid ISO date.");
+  }
+  return parsed;
+}

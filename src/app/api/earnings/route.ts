@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAuthorizedEmail } from "@/lib/auth-guard";
 import { logAudit } from "@/lib/audit";
 import { badRequestResponse, isoDateOrNull, serverErrorResponse, unauthorizedResponse } from "@/lib/api-helpers";
-import { dollarsToCents, isoDateFromDateInput } from "@/lib/format";
+import { dollarsToCents, isoDateFromDateInput, isoDateToUtcDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 const createEarningSchema = z.object({
@@ -48,7 +48,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return badRequestResponse(parsed.error.issues[0]?.message ?? "Invalid payload.");
 
     const data = parsed.data;
-    const receivedDate = isoDateFromDateInput(data.date);
+    const receivedDateIso = isoDateFromDateInput(data.date);
+    const receivedDate = isoDateToUtcDate(receivedDateIso);
 
     const created = await prisma.earning.create({
       data: {
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
         source: created.source,
         receiver: created.receiver,
         amountCents: created.amountCents,
-        receivedDate,
+        receivedDate: receivedDateIso,
       },
     });
 

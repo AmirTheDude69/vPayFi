@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAuthorizedEmail } from "@/lib/auth-guard";
 import { logAudit } from "@/lib/audit";
 import { badRequestResponse, isoDateOrNull, serverErrorResponse, unauthorizedResponse } from "@/lib/api-helpers";
-import { dollarsToCents, isoDateFromDateInput } from "@/lib/format";
+import { dollarsToCents, isoDateFromDateInput, isoDateToUtcDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 const createExpenseSchema = z.object({
@@ -46,7 +46,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return badRequestResponse(parsed.error.issues[0]?.message ?? "Invalid payload.");
 
     const data = parsed.data;
-    const spentDate = isoDateFromDateInput(data.date);
+    const spentDateIso = isoDateFromDateInput(data.date);
+    const spentDate = isoDateToUtcDate(spentDateIso);
 
     const created = await prisma.expense.create({
       data: {
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
         name: created.name,
         spender: created.spender,
         amountCents: created.amountCents,
-        spentDate,
+        spentDate: spentDateIso,
       },
     });
 

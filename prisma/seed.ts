@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 import { GOOGLE_SHEET_ID, SYSTEM_ACTOR_EMAIL, WHITELIST_SEED_EMAILS } from "../src/lib/constants";
+import { isoDateToUtcDate } from "../src/lib/format";
 import {
   computeSourceHash,
   normalizeCategory,
@@ -65,6 +66,7 @@ async function importEarnings() {
       "earning",
       [category, source.toLowerCase(), receiver, amountCents.toString(), parsedDate].join("|"),
     );
+    const receivedDate = isoDateToUtcDate(parsedDate);
 
     await prisma.earning.upsert({
       where: { sourceHash },
@@ -73,7 +75,7 @@ async function importEarnings() {
         source,
         receiver,
         amountCents,
-        receivedDate: parsedDate,
+        receivedDate,
         updatedByEmail: SYSTEM_ACTOR_EMAIL,
       },
       create: {
@@ -81,7 +83,7 @@ async function importEarnings() {
         source,
         receiver,
         amountCents,
-        receivedDate: parsedDate,
+        receivedDate,
         sourceHash,
         createdByEmail: SYSTEM_ACTOR_EMAIL,
         updatedByEmail: SYSTEM_ACTOR_EMAIL,
@@ -110,6 +112,7 @@ async function importExpenses() {
       "expense",
       [name.toLowerCase(), spender, amountCents.toString(), spentDate ?? "null"].join("|"),
     );
+    const normalizedSpentDate = spentDate ? isoDateToUtcDate(spentDate) : null;
 
     await prisma.expense.upsert({
       where: { sourceHash },
@@ -117,14 +120,14 @@ async function importExpenses() {
         name,
         spender,
         amountCents,
-        spentDate,
+        spentDate: normalizedSpentDate,
         updatedByEmail: SYSTEM_ACTOR_EMAIL,
       },
       create: {
         name,
         spender,
         amountCents,
-        spentDate,
+        spentDate: normalizedSpentDate,
         sourceHash,
         createdByEmail: SYSTEM_ACTOR_EMAIL,
         updatedByEmail: SYSTEM_ACTOR_EMAIL,

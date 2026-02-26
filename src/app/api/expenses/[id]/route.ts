@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAuthorizedEmail } from "@/lib/auth-guard";
 import { logAudit } from "@/lib/audit";
 import { badRequestResponse, isoDateOrNull, serverErrorResponse, unauthorizedResponse } from "@/lib/api-helpers";
-import { dollarsToCents, isoDateFromDateInput } from "@/lib/format";
+import { dollarsToCents, isoDateFromDateInput, isoDateToUtcDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 const updateExpenseSchema = z.object({
@@ -34,7 +34,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const data = parsed.data;
-    const spentDate = isoDateFromDateInput(data.date);
+    const spentDate = isoDateToUtcDate(isoDateFromDateInput(data.date));
     const updated = await prisma.expense.update({
       where: { id },
       data: {
