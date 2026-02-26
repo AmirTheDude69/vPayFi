@@ -1,6 +1,7 @@
 "use client";
 
 import type { EarningCategory, Person } from "@prisma/client";
+import { usePrivy } from "@privy-io/react-auth";
 import {
   Area,
   AreaChart,
@@ -63,17 +64,32 @@ function StatCard({ title, value, color }: { title: string; value: string; color
 }
 
 export function DashboardClient() {
+  const { ready, authenticated, getAccessToken } = usePrivy();
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!ready) return;
+    if (!authenticated) {
+      setLoading(false);
+      setError("Please sign in.");
+      return;
+    }
+
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/analytics");
+        const token = await getAccessToken();
+        if (!token) throw new Error("Authentication token missing.");
+
+        const response = await fetch("/api/analytics", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!response.ok) {
           throw new Error("Could not load analytics.");
         }
@@ -89,7 +105,7 @@ export function DashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready, authenticated, getAccessToken]);
 
   const cumulativeMonthly = useMemo(() => {
     if (!data) return [];

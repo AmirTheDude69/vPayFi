@@ -3,7 +3,7 @@
 import { BarChart3, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePrivy } from "@privy-io/react-auth";
 
 function navClass(active: boolean): string {
   return `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all ${
@@ -13,6 +13,7 @@ function navClass(active: boolean): string {
 
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
+  const { logout } = usePrivy();
   const initial = email[0]?.toUpperCase() ?? "?";
 
   return (
@@ -60,7 +61,7 @@ export function Sidebar({ email }: { email: string }) {
           <p className="flex-1 truncate text-[10px] text-[#808080]">{email}</p>
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => void logout()}
             className="text-[#606060] transition-colors hover:text-white"
             title="Sign out"
           >
@@ -74,6 +75,7 @@ export function Sidebar({ email }: { email: string }) {
 
 export function MobileHeader({ email }: { email: string }) {
   const initial = email[0]?.toUpperCase() ?? "?";
+  const { logout } = usePrivy();
   return (
     <header className="flex items-center justify-between border-b border-white/[0.04] bg-[#1A1A1A] px-4 py-3">
       <div className="flex items-center gap-2">
@@ -89,7 +91,7 @@ export function MobileHeader({ email }: { email: string }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => void logout()}
           className="text-[#707070] transition-colors hover:text-white"
           title="Sign out"
         >

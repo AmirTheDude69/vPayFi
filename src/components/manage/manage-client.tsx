@@ -1,8 +1,9 @@
 "use client";
 
 import type { EarningCategory, Person } from "@prisma/client";
+import { usePrivy } from "@privy-io/react-auth";
 import { Check, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   CATEGORY_LABEL_BY_VALUE,
@@ -62,6 +63,7 @@ function FieldLabel({ text }: { text: string }) {
 }
 
 export function ManageClient() {
+  const { ready, authenticated, getAccessToken } = usePrivy();
   const [activeTab, setActiveTab] = useState<"earnings" | "expenses">("earnings");
   const [earnings, setEarnings] = useState<EarningRecord[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
@@ -91,13 +93,37 @@ export function ManageClient() {
     [expenses],
   );
 
+  const authedFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("Authentication token missing.");
+      }
+
+      const headers = new Headers(init?.headers);
+      headers.set("Authorization", `Bearer ${token}`);
+      return fetch(input, { ...init, headers });
+    },
+    [getAccessToken],
+  );
+
   useEffect(() => {
+    if (!ready) return;
+    if (!authenticated) {
+      setLoading(false);
+      setError("Please sign in.");
+      return;
+    }
+
     let cancelled = false;
     async function loadData() {
       setLoading(true);
       setError(null);
       try {
-        const [earningsResponse, expensesResponse] = await Promise.all([fetch("/api/earnings"), fetch("/api/expenses")]);
+        const [earningsResponse, expensesResponse] = await Promise.all([
+          authedFetch("/api/earnings"),
+          authedFetch("/api/expenses"),
+        ]);
         if (!earningsResponse.ok || !expensesResponse.ok) {
           throw new Error("Failed to load entries.");
         }
@@ -121,7 +147,7 @@ export function ManageClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready, authenticated, authedFetch]);
 
   function clearStatus() {
     setError(null);
@@ -182,7 +208,7 @@ export function ManageClient() {
         amount,
         date: earningForm.date,
       };
-      const response = await fetch(editingEarningId ? `/api/earnings/${editingEarningId}` : "/api/earnings", {
+      const response = await authedFetch(editingEarningId ? `/api/earnings/${editingEarningId}` : "/api/earnings", {
         method: editingEarningId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -223,7 +249,7 @@ export function ManageClient() {
         amount,
         date: expenseForm.date,
       };
-      const response = await fetch(editingExpenseId ? `/api/expenses/${editingExpenseId}` : "/api/expenses", {
+      const response = await authedFetch(editingExpenseId ? `/api/expenses/${editingExpenseId}` : "/api/expenses", {
         method: editingExpenseId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -251,7 +277,7 @@ export function ManageClient() {
   async function archiveEarning(id: string) {
     clearStatus();
     if (!window.confirm("Archive this earning?")) return;
-    const response = await fetch(`/api/earnings/${id}`, { method: "DELETE" });
+    const response = await authedFetch(`/api/earnings/${id}`, { method: "DELETE" });
     if (!response.ok) {
       const body = (await response.json()) as { error?: string };
       setError(body.error ?? "Failed to archive earning.");
@@ -264,7 +290,7 @@ export function ManageClient() {
   async function archiveExpense(id: string) {
     clearStatus();
     if (!window.confirm("Archive this expense?")) return;
-    const response = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    const response = await authedFetch(`/api/expenses/${id}`, { method: "DELETE" });
     if (!response.ok) {
       const body = (await response.json()) as { error?: string };
       setError(body.error ?? "Failed to archive expense.");

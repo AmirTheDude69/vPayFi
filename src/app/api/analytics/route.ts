@@ -1,7 +1,7 @@
 import { EarningCategory, Person } from "@prisma/client";
 import { NextResponse } from "next/server";
 
-import { getAuthorizedEmail } from "@/lib/auth-guard";
+import { getAuthorizedEmailFromRequest } from "@/lib/auth-guard";
 import { isoDateOrNull, unauthorizedResponse } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { type AnalyticsResponse } from "@/lib/types";
@@ -14,8 +14,8 @@ function monthLabel(month: string): string {
   }).format(date);
 }
 
-export async function GET() {
-  const actorEmail = await getAuthorizedEmail();
+export async function GET(request: Request) {
+  const actorEmail = await getAuthorizedEmailFromRequest(request);
   if (!actorEmail) return unauthorizedResponse();
 
   const [earnings, expenses] = await Promise.all([

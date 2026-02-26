@@ -2,7 +2,7 @@
 
 Accounting dashboard for vPay co-founders with:
 
-- Whitelisted Google auth
+- Whitelisted Privy auth
 - Earnings + expenses management (create/edit + soft-delete + audit log)
 - Financial analytics (totals, per-person balances, category split, monthly charts, recent activity)
 - One-time Google Sheets import bootstrap
@@ -11,7 +11,7 @@ Accounting dashboard for vPay co-founders with:
 
 - Next.js (App Router, TypeScript, Tailwind)
 - Prisma + Vercel Postgres
-- Auth.js (Google OAuth + email whitelist table)
+- Privy + email whitelist table
 - Recharts
 
 ## Environment
@@ -19,9 +19,9 @@ Accounting dashboard for vPay co-founders with:
 Create `.env.local` from `.env.example` and fill:
 
 ```bash
-AUTH_SECRET=
-AUTH_GOOGLE_ID=
-AUTH_GOOGLE_SECRET=
+NEXT_PUBLIC_PRIVY_APP_ID=
+PRIVY_APP_SECRET=
+PRIVY_VERIFICATION_KEY=
 DATABASE_URL=
 DIRECT_URL=
 ```

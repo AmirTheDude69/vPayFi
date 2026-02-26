@@ -2,7 +2,7 @@ import { EarningCategory, Person } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getAuthorizedEmail } from "@/lib/auth-guard";
+import { getAuthorizedEmailFromRequest } from "@/lib/auth-guard";
 import { logAudit } from "@/lib/audit";
 import { badRequestResponse, isoDateOrNull, serverErrorResponse, unauthorizedResponse } from "@/lib/api-helpers";
 import { dollarsToCents, isoDateFromDateInput, isoDateToUtcDate } from "@/lib/format";
@@ -22,7 +22,7 @@ interface RouteContext {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const actorEmail = await getAuthorizedEmail();
+    const actorEmail = await getAuthorizedEmailFromRequest(request);
     if (!actorEmail) return unauthorizedResponse();
 
     const { id } = await context.params;
@@ -87,7 +87,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    const actorEmail = await getAuthorizedEmail();
+    const actorEmail = await getAuthorizedEmailFromRequest(_request);
     if (!actorEmail) return unauthorizedResponse();
 
     const { id } = await context.params;
@@ -130,7 +130,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
 export async function POST(_request: Request, context: RouteContext) {
   try {
-    const actorEmail = await getAuthorizedEmail();
+    const actorEmail = await getAuthorizedEmailFromRequest(_request);
     if (!actorEmail) return unauthorizedResponse();
 
     const { id } = await context.params;

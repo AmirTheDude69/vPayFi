@@ -2,7 +2,7 @@ import { Person } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getAuthorizedEmail } from "@/lib/auth-guard";
+import { getAuthorizedEmailFromRequest } from "@/lib/auth-guard";
 import { logAudit } from "@/lib/audit";
 import { badRequestResponse, isoDateOrNull, serverErrorResponse, unauthorizedResponse } from "@/lib/api-helpers";
 import { dollarsToCents, isoDateFromDateInput, isoDateToUtcDate } from "@/lib/format";
@@ -15,8 +15,8 @@ const createExpenseSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
-export async function GET() {
-  const actorEmail = await getAuthorizedEmail();
+export async function GET(request: Request) {
+  const actorEmail = await getAuthorizedEmailFromRequest(request);
   if (!actorEmail) return unauthorizedResponse();
 
   const expenses = await prisma.expense.findMany({
@@ -39,7 +39,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const actorEmail = await getAuthorizedEmail();
+    const actorEmail = await getAuthorizedEmailFromRequest(request);
     if (!actorEmail) return unauthorizedResponse();
 
     const parsed = createExpenseSchema.safeParse(await request.json());
