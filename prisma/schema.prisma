@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Person {
+  AMIR
+  JARRETT
+  MIKE
+  MOGAII
+  TREASURY
+}
+
+enum EarningCategory {
+  TOKEN_TRADING_FEES
+  TOKEN_LIQUIDATIONS
+  APP_REVENUE
+  B2B_REVENUE
+}
+
+enum AuditEntityType {
+  EARNING
+  EXPENSE
+  ALLOWED_EMAIL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  SOFT_DELETE
+  RESTORE
+}
+
+model AllowedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("allowed_emails")
+}
+
+model Earning {
+  id             String          @id @default(cuid())
+  category       EarningCategory
+  source         String
+  receiver       Person
+  amountCents    Int
+  receivedDate   DateTime        @db.Date
+  sourceHash     String?         @unique
+  createdByEmail String
+  updatedByEmail String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  @@index([deletedAt, receivedDate])
+  @@map("earnings")
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  name           String
+  spender        Person
+  amountCents    Int
+  spentDate      DateTime? @db.Date
+  sourceHash     String?   @unique
+  createdByEmail String
+  updatedByEmail String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([deletedAt, spentDate])
+  @@map("expenses")
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  actorEmail String
+  entityType AuditEntityType
+  entityId   String
+  action     AuditAction
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime        @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@map("audit_logs")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  Authenticator Authenticator[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
