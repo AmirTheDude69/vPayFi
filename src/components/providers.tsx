@@ -18,7 +18,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         loginMethods: ["email"],
         embeddedWallets: {
-          createOnLogin: "off",
+          ethereum: {
+            createOnLogin: "off",
+          },
+          solana: {
+            createOnLogin: "off",
+          },
         },
       }}
     >
