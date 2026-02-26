@@ -23,6 +23,20 @@ export function formatDateLabel(date: string | null): string {
   }).format(new Date(date));
 }
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function formatIsoDateLabel(date: string | null): string {
+  if (!date) return "No date";
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return date;
+  const year = match[1];
+  const monthIndex = Number.parseInt(match[2], 10) - 1;
+  const day = match[3];
+  const month = MONTH_SHORT[monthIndex];
+  if (!month) return date;
+  return `${year}-${month}-${day}`;
+}
+
 export function isoDateFromDateInput(value: string): string {
   const parsed = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) {

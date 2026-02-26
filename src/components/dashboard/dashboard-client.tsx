@@ -17,8 +17,8 @@ import {
 } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 
-import { CATEGORY_LABEL_BY_VALUE, PERSON_LABEL_BY_VALUE } from "@/lib/constants";
-import { formatCurrency } from "@/lib/format";
+import { CATEGORY_LABEL_BY_VALUE, PEOPLE, PERSON_LABEL_BY_VALUE } from "@/lib/constants";
+import { formatCurrency, formatIsoDateLabel } from "@/lib/format";
 import { type AnalyticsResponse } from "@/lib/types";
 
 const CATEGORY_COLORS: Record<EarningCategory, string> = {
@@ -63,11 +63,37 @@ function StatCard({ title, value, color }: { title: string; value: string; color
   );
 }
 
+type ActivityTypeFilter = "all" | "earning" | "expense";
+type ActivitySortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "person_asc";
+
+const ACTIVITY_SORT_OPTIONS: ReadonlyArray<{ value: ActivitySortOption; label: string }> = [
+  { value: "date_desc", label: "Date (Latest)" },
+  { value: "date_asc", label: "Date (Oldest)" },
+  { value: "amount_desc", label: "Amount (High-Low)" },
+  { value: "amount_asc", label: "Amount (Low-High)" },
+  { value: "person_asc", label: "Person (A-Z)" },
+];
+
+function parseAmountToCents(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed * 100);
+}
+
 export function DashboardClient() {
   const { ready, authenticated, getAccessToken } = usePrivy();
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activityType, setActivityType] = useState<ActivityTypeFilter>("all");
+  const [activityPerson, setActivityPerson] = useState<Person | "all">("all");
+  const [activitySort, setActivitySort] = useState<ActivitySortOption>("date_desc");
+  const [minAmountInput, setMinAmountInput] = useState("");
+  const [maxAmountInput, setMaxAmountInput] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     if (!ready) return;
@@ -115,6 +141,37 @@ export function DashboardClient() {
       return { ...row, cumulativeNetCents: running };
     });
   }, [data]);
+
+  const filteredRecentActivity = useMemo(() => {
+    if (!data) return [];
+
+    const minAmountCents = parseAmountToCents(minAmountInput);
+    const maxAmountCents = parseAmountToCents(maxAmountInput);
+
+    const filtered = data.recentActivity.filter((entry) => {
+      if (activityType !== "all" && entry.type !== activityType) return false;
+      if (activityPerson !== "all" && entry.person !== activityPerson) return false;
+      if (minAmountCents !== null && entry.amountCents < minAmountCents) return false;
+      if (maxAmountCents !== null && entry.amountCents > maxAmountCents) return false;
+      if (dateFrom && (!entry.date || entry.date < dateFrom)) return false;
+      if (dateTo && (!entry.date || entry.date > dateTo)) return false;
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (activitySort === "amount_desc") return b.amountCents - a.amountCents;
+      if (activitySort === "amount_asc") return a.amountCents - b.amountCents;
+      if (activitySort === "person_asc") {
+        const byPerson = PERSON_LABEL_BY_VALUE[a.person].localeCompare(PERSON_LABEL_BY_VALUE[b.person]);
+        if (byPerson !== 0) return byPerson;
+      }
+
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return activitySort === "date_asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
+    });
+  }, [activityType, activityPerson, activitySort, data, minAmountInput, maxAmountInput, dateFrom, dateTo]);
 
   if (loading) {
     return <div className="p-8 text-sm text-[#9b9b9b]">Loading analytics...</div>;
@@ -275,11 +332,98 @@ export function DashboardClient() {
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[13px] font-semibold text-white/80">Recent Activity</h3>
-          <span className="text-[10px] text-[#666]">{data.recentActivity.length} latest</span>
+          <span className="text-[10px] text-[#666]">
+            {filteredRecentActivity.length} shown / {data.recentActivity.length} total
+          </span>
+        </div>
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
+          <label className="text-[10px] text-[#777]">
+            Type
+            <select
+              value={activityType}
+              onChange={(event) => setActivityType(event.target.value as ActivityTypeFilter)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+            >
+              <option value="all">All</option>
+              <option value="earning">Earnings</option>
+              <option value="expense">Expenses</option>
+            </select>
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Person
+            <select
+              value={activityPerson}
+              onChange={(event) => setActivityPerson(event.target.value as Person | "all")}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+            >
+              <option value="all">All</option>
+              {PEOPLE.map((person) => (
+                <option key={person.value} value={person.value}>
+                  {person.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Sort
+            <select
+              value={activitySort}
+              onChange={(event) => setActivitySort(event.target.value as ActivitySortOption)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+            >
+              {ACTIVITY_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Min Amount (USD)
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={minAmountInput}
+              onChange={(event) => setMinAmountInput(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+              placeholder="0.00"
+            />
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Max Amount (USD)
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={maxAmountInput}
+              onChange={(event) => setMaxAmountInput(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+              placeholder="100000.00"
+            />
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Date From
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+            />
+          </label>
+          <label className="text-[10px] text-[#777]">
+            Date To
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/[0.06] bg-[#232323] px-3 py-2 text-[11px] text-white/90"
+            />
+          </label>
         </div>
         <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-2">
           <div className="space-y-0.5">
-            {data.recentActivity.map((entry) => (
+            {filteredRecentActivity.map((entry) => (
               <div key={`${entry.type}-${entry.id}`} className="group rounded-lg px-3 py-2.5 transition-colors hover:bg-white/[0.015]">
                 <div className="flex items-center gap-3">
                   <div
@@ -292,7 +436,7 @@ export function DashboardClient() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-medium text-white/90">{entry.name}</p>
                     <p className="text-[10px] text-[#777]">
-                      {PERSON_LABEL_BY_VALUE[entry.person]} · {entry.date ?? "No date"}
+                      {PERSON_LABEL_BY_VALUE[entry.person]} · {formatIsoDateLabel(entry.date)}
                     </p>
                   </div>
                   <span className={`text-[12px] font-semibold ${entry.type === "earning" ? "text-[#34D399]" : "text-[#F87171]"}`}>
@@ -302,6 +446,9 @@ export function DashboardClient() {
                 </div>
               </div>
             ))}
+            {filteredRecentActivity.length === 0 ? (
+              <div className="px-3 py-4 text-[11px] text-[#777]">No activity matches the current filters.</div>
+            ) : null}
           </div>
         </div>
       </div>

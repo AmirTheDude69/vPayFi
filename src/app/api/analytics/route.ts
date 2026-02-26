@@ -114,8 +114,7 @@ export async function GET(request: Request) {
       if (!a.date) return 1;
       if (!b.date) return -1;
       return b.date.localeCompare(a.date);
-    })
-    .slice(0, 20);
+    });
 
   const undatedExpenses = {
     count: expenses.filter((row) => !row.spentDate).length,

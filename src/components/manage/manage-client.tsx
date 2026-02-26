@@ -13,7 +13,7 @@ import {
   VALUE_BY_CATEGORY_LABEL,
   VALUE_BY_PERSON_LABEL,
 } from "@/lib/constants";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatIsoDateLabel } from "@/lib/format";
 import { type EarningRecord, type ExpenseRecord } from "@/lib/types";
 
 const PERSON_COLORS: Record<Person, string> = {
@@ -477,7 +477,7 @@ export function ManageClient() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-medium text-white/90">{entry.source}</p>
                     <p className="text-[10px] text-[#777]">
-                      {PERSON_LABEL_BY_VALUE[entry.receiver]} · {entry.receivedDate}
+                      {PERSON_LABEL_BY_VALUE[entry.receiver]} · {formatIsoDateLabel(entry.receivedDate)}
                     </p>
                   </div>
                   <span className="hidden rounded-full border border-[#4A9EFF]/20 bg-[#4A9EFF]/12 px-2 py-0.5 text-[9px] text-[#9fc8ff] sm:inline">
@@ -617,7 +617,7 @@ export function ManageClient() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-medium text-white/90">{entry.name}</p>
                     <p className="text-[10px] text-[#777]">
-                      {PERSON_LABEL_BY_VALUE[entry.spender]} · {entry.spentDate ?? "No date"}
+                      {PERSON_LABEL_BY_VALUE[entry.spender]} · {formatIsoDateLabel(entry.spentDate)}
                     </p>
                   </div>
                   <span className="shrink-0 text-[12px] font-semibold text-[#F87171]">-{formatCurrency(entry.amountCents)}</span>
