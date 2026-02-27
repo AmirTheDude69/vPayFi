@@ -73,7 +73,8 @@ export interface AnalyticsResponse {
     expensesCents: number;
     payoutsCents: number;
     netCents: number;
-    holdingsCents: number;
+    btcPriceCents: number;
+    treasuryCents: number;
   };
   perPerson: Array<{
     person: Person;

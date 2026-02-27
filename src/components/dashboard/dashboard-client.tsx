@@ -49,7 +49,7 @@ function formatTooltipCurrency(value: number | string | undefined): string {
   return formatCurrency(numeric);
 }
 
-function StatCard({ title, value, color }: { title: string; value: string; color: string }) {
+function StatCard({ title, value, color, note }: { title: string; value: string; color: string; note?: string }) {
   return (
     <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-5">
       <div className="mb-2 flex items-center gap-2">
@@ -57,6 +57,7 @@ function StatCard({ title, value, color }: { title: string; value: string; color
         <p className="text-[10px] uppercase tracking-[0.12em] text-[#888]">{title}</p>
       </div>
       <p className="text-[24px] font-semibold tracking-[-0.03em] text-white/95">{value}</p>
+      {note ? <p className="mt-2 text-[10px] text-[#777]">{note}</p> : null}
     </div>
   );
 }
@@ -182,10 +183,16 @@ export function DashboardClient() {
         <div className="mt-5 h-px bg-gradient-to-r from-[#4A9EFF]/25 via-[#7C5CFF]/15 to-transparent" />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Earnings" value={formatCurrency(data.totals.earningsCents)} color="#34D399" />
         <StatCard title="Expenses" value={formatCurrency(data.totals.expensesCents)} color="#F87171" />
-        <StatCard title="Holdings" value={formatCurrency(data.totals.holdingsCents)} color="#FBBF24" />
+        <StatCard title="Payouts" value={formatCurrency(data.totals.payoutsCents)} color="#7C5CFF" />
+        <StatCard
+          title="Treasury"
+          value={formatCurrency(data.totals.treasuryCents)}
+          color="#FBBF24"
+          note={`Includes 1 BTC at live price (${formatCurrency(data.totals.btcPriceCents)})`}
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

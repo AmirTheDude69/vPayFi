@@ -14,11 +14,47 @@ function monthLabel(month: string): string {
   }).format(date);
 }
 
+async function fetchBtcPriceCents(): Promise<number> {
+  try {
+    const coinbaseResponse = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (coinbaseResponse.ok) {
+      const payload = (await coinbaseResponse.json()) as { data?: { amount?: string } };
+      const amount = Number.parseFloat(payload.data?.amount ?? "");
+      if (Number.isFinite(amount) && amount > 0) {
+        return Math.round(amount * 100);
+      }
+    }
+  } catch {
+    // Fall through to secondary source.
+  }
+
+  try {
+    const geckoResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (geckoResponse.ok) {
+      const payload = (await geckoResponse.json()) as { bitcoin?: { usd?: number } };
+      const amount = payload.bitcoin?.usd ?? Number.NaN;
+      if (Number.isFinite(amount) && amount > 0) {
+        return Math.round(amount * 100);
+      }
+    }
+  } catch {
+    // Fall back to zero if all providers fail.
+  }
+
+  return 0;
+}
+
 export async function GET(request: Request) {
   const actorEmail = await getAuthorizedEmailFromRequest(request);
   if (!actorEmail) return unauthorizedResponse();
 
-  const [earnings, expenses, payouts] = await Promise.all([
+  const [earnings, expenses, payouts, btcPriceCents] = await Promise.all([
     prisma.earning.findMany({
       where: { deletedAt: null },
       orderBy: { receivedDate: "desc" },
@@ -31,17 +67,19 @@ export async function GET(request: Request) {
       where: { deletedAt: null },
       orderBy: { paidDate: "desc" },
     }),
+    fetchBtcPriceCents(),
   ]);
 
   const totals = {
     earningsCents: earnings.reduce((sum, row) => sum + row.amountCents, 0),
     expensesCents: expenses.reduce((sum, row) => sum + row.amountCents, 0),
     payoutsCents: payouts.reduce((sum, row) => sum + row.amountCents, 0),
+    btcPriceCents,
     netCents: 0,
-    holdingsCents: 0,
+    treasuryCents: 0,
   };
-  totals.netCents = totals.earningsCents - totals.expensesCents;
-  totals.holdingsCents = totals.netCents;
+  totals.netCents = totals.earningsCents - totals.expensesCents - totals.payoutsCents;
+  totals.treasuryCents = totals.netCents + totals.btcPriceCents;
 
   const perPersonMap = new Map<Person, { earningsCents: number; expensesCents: number }>();
   (Object.values(Person) as Person[]).forEach((person) => {
