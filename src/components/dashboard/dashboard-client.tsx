@@ -175,6 +175,10 @@ export function DashboardClient() {
     );
   }
 
+  const sortedTeamEarnings = [...data.teamEarnings].sort((a, b) => b.payoutCents - a.payoutCents);
+  const totalTeamEarningsCents = sortedTeamEarnings.reduce((sum, entry) => sum + entry.payoutCents, 0);
+  const totalTeamBalanceCents = data.perPerson.reduce((sum, entry) => sum + entry.netCents, 0);
+
   return (
     <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
       <div className="mb-8">
@@ -198,8 +202,8 @@ export function DashboardClient() {
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h3 className="mb-4 text-[13px] font-semibold text-white/80">Monthly Cash Flow</h3>
-          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4">
-            <ResponsiveContainer width="100%" height={260}>
+          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 min-h-[360px]">
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data.monthly}>
                 <XAxis dataKey="label" tick={{ fill: "#777", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis
@@ -268,34 +272,38 @@ export function DashboardClient() {
           <h3 className="mb-4 text-[13px] font-semibold text-white/80">Team Earnings</h3>
           <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4">
             <div className="space-y-2">
-              {[...data.teamEarnings]
-                .sort((a, b) => b.payoutCents - a.payoutCents)
-                .map((entry) => (
-                  <div key={entry.person} className="rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.02]">
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
-                          style={{
-                            color: PERSON_COLORS[entry.person],
-                            background: `${PERSON_COLORS[entry.person]}30`,
-                          }}
-                        >
-                          {PERSON_LABEL_BY_VALUE[entry.person][0]}
-                        </div>
-                        <span className="text-[13px] font-medium text-white/90">{PERSON_LABEL_BY_VALUE[entry.person]}</span>
+              {sortedTeamEarnings.map((entry) => (
+                <div key={entry.person} className="rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.02]">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
+                        style={{
+                          color: PERSON_COLORS[entry.person],
+                          background: `${PERSON_COLORS[entry.person]}30`,
+                        }}
+                      >
+                        {PERSON_LABEL_BY_VALUE[entry.person][0]}
                       </div>
-                      <span className="text-[14px] font-semibold text-[#34D399]">+{formatCurrency(entry.payoutCents)}</span>
+                      <span className="text-[13px] font-medium text-white/90">{PERSON_LABEL_BY_VALUE[entry.person]}</span>
                     </div>
-                    <div className="ml-10 flex items-center gap-3 text-[10px] text-[#777]">
-                      <span>
-                        {data.totals.payoutsCents > 0
-                          ? `${((entry.payoutCents / data.totals.payoutsCents) * 100).toFixed(1)}% of payouts`
-                          : "0.0% of payouts"}
-                      </span>
-                    </div>
+                    <span className="text-[14px] font-semibold text-[#34D399]">+{formatCurrency(entry.payoutCents)}</span>
                   </div>
-                ))}
+                  <div className="ml-10 flex items-center gap-3 text-[10px] text-[#777]">
+                    <span>
+                      {data.totals.payoutsCents > 0
+                        ? `${((entry.payoutCents / data.totals.payoutsCents) * 100).toFixed(1)}% of payouts`
+                        : "0.0% of payouts"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-white/[0.04] pt-3">
+              <div className="flex items-center justify-between px-3">
+                <span className="text-[10px] uppercase tracking-[0.12em] text-[#777]">Total</span>
+                <span className="text-[12px] font-semibold text-[#34D399]">+{formatCurrency(totalTeamEarningsCents)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -330,6 +338,15 @@ export function DashboardClient() {
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 border-t border-white/[0.04] pt-3">
+              <div className="flex items-center justify-between px-3">
+                <span className="text-[10px] uppercase tracking-[0.12em] text-[#777]">Total</span>
+                <span className={`text-[12px] font-semibold ${totalTeamBalanceCents >= 0 ? "text-[#34D399]" : "text-[#F87171]"}`}>
+                  {totalTeamBalanceCents >= 0 ? "+" : ""}
+                  {formatCurrency(totalTeamBalanceCents)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
