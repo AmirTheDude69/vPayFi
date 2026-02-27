@@ -57,6 +57,12 @@ export async function GET(request: Request) {
     if (target) target.expensesCents += row.amountCents;
   });
 
+  // Payouts are distributed out of Treasury earnings.
+  const treasury = perPersonMap.get(Person.TREASURY);
+  if (treasury) {
+    treasury.earningsCents -= totals.payoutsCents;
+  }
+
   const perPerson = Array.from(perPersonMap.entries()).map(([person, values]) => ({
     person,
     earningsCents: values.earningsCents,
