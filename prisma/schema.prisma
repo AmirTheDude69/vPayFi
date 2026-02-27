@@ -26,6 +26,7 @@ enum EarningCategory {
 enum AuditEntityType {
   EARNING
   EXPENSE
+  PAYOUT
   ALLOWED_EMAIL
 }
 
@@ -79,6 +80,24 @@ model Expense {
 
   @@index([deletedAt, spentDate])
   @@map("expenses")
+}
+
+model Payout {
+  id             String          @id @default(cuid())
+  category       EarningCategory
+  name           String
+  receiver       Person
+  amountCents    Int
+  paidDate       DateTime        @db.Date
+  sourceHash     String?         @unique
+  createdByEmail String
+  updatedByEmail String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  @@index([deletedAt, paidDate])
+  @@map("payouts")
 }
 
 model AuditLog {

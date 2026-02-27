@@ -3,8 +3,8 @@
 Accounting dashboard for vPay co-founders with:
 
 - Whitelisted Privy auth
-- Earnings + expenses management (create/edit + soft-delete + audit log)
-- Financial analytics (totals, per-person balances, category split, monthly charts, recent activity)
+- Earnings + expenses + payouts management (create/edit + soft-delete + audit log)
+- Financial analytics (totals, holdings, team balances, team earnings, category split, monthly charts, recent activity)
 - One-time Google Sheets import bootstrap
 
 ## Stack
@@ -56,6 +56,7 @@ App routes:
 - Imports Google Sheets tabs:
   - `Earnings`
   - `Expenses`
+  - `Payouts`
 - Normalizes names/categories/amount/date
 - Upserts with deterministic `source_hash` so reruns are idempotent
 

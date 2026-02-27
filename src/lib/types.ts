@@ -23,6 +23,18 @@ export interface UpdateExpenseInput extends CreateExpenseInput {
   id: string;
 }
 
+export interface CreatePayoutInput {
+  category: EarningCategory;
+  name: string;
+  receiver: Person;
+  amount: number;
+  date: string;
+}
+
+export interface UpdatePayoutInput extends CreatePayoutInput {
+  id: string;
+}
+
 export interface EarningRecord {
   id: string;
   category: EarningCategory;
@@ -44,11 +56,24 @@ export interface ExpenseRecord {
   updatedAt: string;
 }
 
+export interface PayoutRecord {
+  id: string;
+  category: EarningCategory;
+  name: string;
+  receiver: Person;
+  amountCents: number;
+  paidDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AnalyticsResponse {
   totals: {
     earningsCents: number;
     expensesCents: number;
+    payoutsCents: number;
     netCents: number;
+    holdingsCents: number;
   };
   perPerson: Array<{
     person: Person;
@@ -69,14 +94,14 @@ export interface AnalyticsResponse {
   }>;
   recentActivity: Array<{
     id: string;
-    type: "earning" | "expense";
+    type: "earning" | "expense" | "payout";
     name: string;
     person: Person;
     amountCents: number;
     date: string | null;
   }>;
-  undatedExpenses: {
-    count: number;
-    totalCents: number;
-  };
+  teamEarnings: Array<{
+    person: Person;
+    payoutCents: number;
+  }>;
 }

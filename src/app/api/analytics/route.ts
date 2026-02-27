@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const actorEmail = await getAuthorizedEmailFromRequest(request);
   if (!actorEmail) return unauthorizedResponse();
 
-  const [earnings, expenses] = await Promise.all([
+  const [earnings, expenses, payouts] = await Promise.all([
     prisma.earning.findMany({
       where: { deletedAt: null },
       orderBy: { receivedDate: "desc" },
@@ -27,14 +27,21 @@ export async function GET(request: Request) {
       where: { deletedAt: null },
       orderBy: [{ spentDate: "desc" }, { createdAt: "desc" }],
     }),
+    prisma.payout.findMany({
+      where: { deletedAt: null },
+      orderBy: { paidDate: "desc" },
+    }),
   ]);
 
   const totals = {
     earningsCents: earnings.reduce((sum, row) => sum + row.amountCents, 0),
     expensesCents: expenses.reduce((sum, row) => sum + row.amountCents, 0),
+    payoutsCents: payouts.reduce((sum, row) => sum + row.amountCents, 0),
     netCents: 0,
+    holdingsCents: 0,
   };
   totals.netCents = totals.earningsCents - totals.expensesCents;
+  totals.holdingsCents = totals.netCents;
 
   const perPersonMap = new Map<Person, { earningsCents: number; expensesCents: number }>();
   (Object.values(Person) as Person[]).forEach((person) => {
@@ -55,6 +62,18 @@ export async function GET(request: Request) {
     earningsCents: values.earningsCents,
     expensesCents: values.expensesCents,
     netCents: values.earningsCents - values.expensesCents,
+  }));
+
+  const teamEarningsMap = new Map<Person, number>();
+  (Object.values(Person) as Person[]).forEach((person) => {
+    teamEarningsMap.set(person, 0);
+  });
+  payouts.forEach((row) => {
+    teamEarningsMap.set(row.receiver, (teamEarningsMap.get(row.receiver) ?? 0) + row.amountCents);
+  });
+  const teamEarnings = Array.from(teamEarningsMap.entries()).map(([person, payoutCents]) => ({
+    person,
+    payoutCents,
   }));
 
   const categoryMap = new Map<EarningCategory, number>();
@@ -108,6 +127,14 @@ export async function GET(request: Request) {
       amountCents: row.amountCents,
       date: isoDateOrNull(row.spentDate),
     })),
+    ...payouts.map((row) => ({
+      id: row.id,
+      type: "payout" as const,
+      name: row.name,
+      person: row.receiver,
+      amountCents: row.amountCents,
+      date: isoDateOrNull(row.paidDate),
+    })),
   ]
     .sort((a, b) => {
       if (!a.date && !b.date) return 0;
@@ -116,18 +143,13 @@ export async function GET(request: Request) {
       return b.date.localeCompare(a.date);
     });
 
-  const undatedExpenses = {
-    count: expenses.filter((row) => !row.spentDate).length,
-    totalCents: expenses.filter((row) => !row.spentDate).reduce((sum, row) => sum + row.amountCents, 0),
-  };
-
   const response: AnalyticsResponse = {
     totals,
     perPerson,
     categorySplit,
     monthly,
     recentActivity,
-    undatedExpenses,
+    teamEarnings,
   };
 
   return NextResponse.json(response);

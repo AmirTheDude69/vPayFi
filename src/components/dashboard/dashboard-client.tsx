@@ -3,8 +3,6 @@
 import type { EarningCategory, Person } from "@prisma/client";
 import { usePrivy } from "@privy-io/react-auth";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   Cell,
@@ -63,7 +61,7 @@ function StatCard({ title, value, color }: { title: string; value: string; color
   );
 }
 
-type ActivityTypeFilter = "all" | "earning" | "expense";
+type ActivityTypeFilter = "all" | "earning" | "expense" | "payout";
 type ActivitySortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "person_asc";
 
 const ACTIVITY_SORT_OPTIONS: ReadonlyArray<{ value: ActivitySortOption; label: string }> = [
@@ -133,15 +131,6 @@ export function DashboardClient() {
     };
   }, [ready, authenticated, getAccessToken]);
 
-  const cumulativeMonthly = useMemo(() => {
-    if (!data) return [];
-    let running = 0;
-    return data.monthly.map((row) => {
-      running += row.netCents;
-      return { ...row, cumulativeNetCents: running };
-    });
-  }, [data]);
-
   const filteredRecentActivity = useMemo(() => {
     if (!data) return [];
 
@@ -196,7 +185,7 @@ export function DashboardClient() {
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard title="Earnings" value={formatCurrency(data.totals.earningsCents)} color="#34D399" />
         <StatCard title="Expenses" value={formatCurrency(data.totals.expensesCents)} color="#F87171" />
-        <StatCard title="Undated Expenses" value={formatCurrency(data.undatedExpenses.totalCents)} color="#FBBF24" />
+        <StatCard title="Holdings" value={formatCurrency(data.totals.holdingsCents)} color="#FBBF24" />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -269,28 +258,38 @@ export function DashboardClient() {
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
-          <h3 className="mb-4 text-[13px] font-semibold text-white/80">Growth</h3>
+          <h3 className="mb-4 text-[13px] font-semibold text-white/80">Team Earnings</h3>
           <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4">
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={cumulativeMonthly}>
-                <defs>
-                  <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4A9EFF" stopOpacity={0.18} />
-                    <stop offset="100%" stopColor="#4A9EFF" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="label" tick={{ fill: "#777", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: "#777", fontSize: 9 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={46}
-                  tickFormatter={(value: number) => `$${Math.round(value / 10000)}k`}
-                />
-                <Tooltip contentStyle={chartTooltipStyle} formatter={formatTooltipCurrency} />
-                <Area dataKey="cumulativeNetCents" stroke="#4A9EFF" fill="url(#netGradient)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="space-y-2">
+              {[...data.teamEarnings]
+                .sort((a, b) => b.payoutCents - a.payoutCents)
+                .map((entry) => (
+                  <div key={entry.person} className="rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.02]">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
+                          style={{
+                            color: PERSON_COLORS[entry.person],
+                            background: `${PERSON_COLORS[entry.person]}30`,
+                          }}
+                        >
+                          {PERSON_LABEL_BY_VALUE[entry.person][0]}
+                        </div>
+                        <span className="text-[13px] font-medium text-white/90">{PERSON_LABEL_BY_VALUE[entry.person]}</span>
+                      </div>
+                      <span className="text-[14px] font-semibold text-[#34D399]">+{formatCurrency(entry.payoutCents)}</span>
+                    </div>
+                    <div className="ml-10 flex items-center gap-3 text-[10px] text-[#777]">
+                      <span>
+                        {data.totals.payoutsCents > 0
+                          ? `${((entry.payoutCents / data.totals.payoutsCents) * 100).toFixed(1)}% of payouts`
+                          : "0.0% of payouts"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
@@ -347,6 +346,7 @@ export function DashboardClient() {
               <option value="all">All</option>
               <option value="earning">Earnings</option>
               <option value="expense">Expenses</option>
+              <option value="payout">Payouts</option>
             </select>
           </label>
           <label className="text-[10px] text-[#777]">
@@ -439,8 +439,12 @@ export function DashboardClient() {
                       {PERSON_LABEL_BY_VALUE[entry.person]} · {formatIsoDateLabel(entry.date)}
                     </p>
                   </div>
-                  <span className={`text-[12px] font-semibold ${entry.type === "earning" ? "text-[#34D399]" : "text-[#F87171]"}`}>
-                    {entry.type === "earning" ? "+" : "-"}
+                  <span
+                    className={`text-[12px] font-semibold ${
+                      entry.type === "expense" ? "text-[#F87171]" : entry.type === "payout" ? "text-[#4A9EFF]" : "text-[#34D399]"
+                    }`}
+                  >
+                    {entry.type === "expense" ? "-" : "+"}
                     {formatCurrency(entry.amountCents)}
                   </span>
                 </div>

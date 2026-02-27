@@ -18,6 +18,7 @@ const PERSON_MAP: Record<string, Person> = {
   amir: "AMIR",
   jarrett: "JARRETT",
   mike: "MIKE",
+  mogai: "MOGAII",
   mogaii: "MOGAII",
   treasury: "TREASURY",
 };
@@ -80,6 +81,14 @@ export function parseSheetDate(raw: string): string | null {
   const value = raw.trim();
   if (!value) return null;
 
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = Number.parseInt(isoMatch[1], 10);
+    const month = Number.parseInt(isoMatch[2], 10);
+    const day = Number.parseInt(isoMatch[3], 10);
+    return toIsoDate(year, month, day);
+  }
+
   const wordMatch = value.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
   if (wordMatch) {
     const day = Number.parseInt(wordMatch[1], 10);
@@ -106,7 +115,7 @@ export function parseSheetDate(raw: string): string | null {
   throw new Error(`Unsupported date format: ${raw}`);
 }
 
-export function computeSourceHash(prefix: "earning" | "expense", payload: string): string {
+export function computeSourceHash(prefix: "earning" | "expense" | "payout", payload: string): string {
   return crypto.createHash("sha256").update(`${prefix}:${payload}`).digest("hex");
 }
 
