@@ -14,6 +14,12 @@ function monthLabel(month: string): string {
   }).format(date);
 }
 
+const BTC_PLACEHOLDER_CENTS = 100_000 * 100;
+
+function isBtcPlaceholderEarning(source: string): boolean {
+  return /\b1\s*btc\b/i.test(source);
+}
+
 async function fetchBtcPriceCents(): Promise<number> {
   try {
     const coinbaseResponse = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot", {
@@ -70,16 +76,30 @@ export async function GET(request: Request) {
     fetchBtcPriceCents(),
   ]);
 
+  const btcPlaceholderRow = earnings.find(
+    (row) => row.receiver === Person.TREASURY && isBtcPlaceholderEarning(row.source),
+  );
+  const effectiveBtcPriceCents = btcPriceCents > 0 ? btcPriceCents : (btcPlaceholderRow?.amountCents ?? BTC_PLACEHOLDER_CENTS);
+  const syntheticBtcEarningCents = btcPlaceholderRow ? 0 : effectiveBtcPriceCents;
+  const effectiveEarningAmountById = new Map<string, number>(
+    earnings.map((row) => [
+      row.id,
+      btcPlaceholderRow && row.id === btcPlaceholderRow.id ? effectiveBtcPriceCents : row.amountCents,
+    ]),
+  );
+
   const totals = {
-    earningsCents: earnings.reduce((sum, row) => sum + row.amountCents, 0),
+    earningsCents:
+      earnings.reduce((sum, row) => sum + (effectiveEarningAmountById.get(row.id) ?? row.amountCents), 0) +
+      syntheticBtcEarningCents,
     expensesCents: expenses.reduce((sum, row) => sum + row.amountCents, 0),
     payoutsCents: payouts.reduce((sum, row) => sum + row.amountCents, 0),
-    btcPriceCents,
+    btcPriceCents: effectiveBtcPriceCents,
     netCents: 0,
     treasuryCents: 0,
   };
   totals.netCents = totals.earningsCents - totals.expensesCents - totals.payoutsCents;
-  totals.treasuryCents = totals.netCents + totals.btcPriceCents;
+  totals.treasuryCents = totals.netCents;
 
   const perPersonMap = new Map<Person, { earningsCents: number; expensesCents: number }>();
   (Object.values(Person) as Person[]).forEach((person) => {
@@ -88,7 +108,7 @@ export async function GET(request: Request) {
 
   earnings.forEach((row) => {
     const target = perPersonMap.get(row.receiver);
-    if (target) target.earningsCents += row.amountCents;
+    if (target) target.earningsCents += effectiveEarningAmountById.get(row.id) ?? row.amountCents;
   });
   expenses.forEach((row) => {
     const target = perPersonMap.get(row.spender);
@@ -98,6 +118,7 @@ export async function GET(request: Request) {
   // Payouts are distributed out of Treasury earnings.
   const treasury = perPersonMap.get(Person.TREASURY);
   if (treasury) {
+    treasury.earningsCents += syntheticBtcEarningCents;
     treasury.earningsCents -= totals.payoutsCents;
   }
 
@@ -123,8 +144,14 @@ export async function GET(request: Request) {
   const categoryMap = new Map<EarningCategory, number>();
   (Object.values(EarningCategory) as EarningCategory[]).forEach((category) => categoryMap.set(category, 0));
   earnings.forEach((row) => {
-    categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + row.amountCents);
+    categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + (effectiveEarningAmountById.get(row.id) ?? row.amountCents));
   });
+  if (syntheticBtcEarningCents > 0) {
+    categoryMap.set(
+      EarningCategory.TOKEN_TRADING_FEES,
+      (categoryMap.get(EarningCategory.TOKEN_TRADING_FEES) ?? 0) + syntheticBtcEarningCents,
+    );
+  }
   const categorySplit = Array.from(categoryMap.entries()).map(([category, amountCents]) => ({
     category,
     amountCents,
@@ -134,9 +161,15 @@ export async function GET(request: Request) {
   earnings.forEach((row) => {
     const key = row.receivedDate.toISOString().slice(0, 7);
     const current = monthlyMap.get(key) ?? { earningsCents: 0, expensesCents: 0 };
-    current.earningsCents += row.amountCents;
+    current.earningsCents += effectiveEarningAmountById.get(row.id) ?? row.amountCents;
     monthlyMap.set(key, current);
   });
+  if (syntheticBtcEarningCents > 0) {
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const current = monthlyMap.get(currentMonthKey) ?? { earningsCents: 0, expensesCents: 0 };
+    current.earningsCents += syntheticBtcEarningCents;
+    monthlyMap.set(currentMonthKey, current);
+  }
   expenses.forEach((row) => {
     if (!row.spentDate) return;
     const key = row.spentDate.toISOString().slice(0, 7);
@@ -160,7 +193,7 @@ export async function GET(request: Request) {
       type: "earning" as const,
       name: row.source,
       person: row.receiver,
-      amountCents: row.amountCents,
+      amountCents: effectiveEarningAmountById.get(row.id) ?? row.amountCents,
       date: isoDateOrNull(row.receivedDate),
     })),
     ...expenses.map((row) => ({
