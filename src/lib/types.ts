@@ -105,4 +105,26 @@ export interface AnalyticsResponse {
     person: Person;
     payoutCents: number;
   }>;
+  appStats: {
+    available: boolean;
+    sources: Array<{
+      key: string;
+      label: string;
+      profitCents: number | null;
+      revenueCents: number | null;
+    }>;
+    totals: {
+      profitCents: number;
+      revenueCents: number;
+    };
+    treasury: {
+      balanceCents: number | null;
+      currency: string | null;
+      accountId: string | null;
+    };
+    feeCollector: {
+      balanceCents: number | null;
+      address: string | null;
+    };
+  };
 }

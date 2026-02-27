@@ -15,9 +15,122 @@ function monthLabel(month: string): string {
 }
 
 const BTC_PLACEHOLDER_CENTS = 100_000 * 100;
+const VPAY_API_BASE = "https://api.vpay.fund/v1/admin";
+const VPAY_SOURCE_ORDER = [
+  "virtual_cards",
+  "offshore_accounts",
+  "additional_cards",
+  "topup_fees_virtual",
+  "topup_fees_offshore",
+  "withdraw_fees",
+  "swap_fees",
+  "shipping_revenue",
+] as const;
+const VPAY_SOURCE_LABEL: Record<string, string> = {
+  virtual_cards: "Virtual Cards",
+  offshore_accounts: "Offshore Accounts",
+  additional_cards: "Additional Cards",
+  topup_fees_virtual: "Topup Fees (Virtual)",
+  topup_fees_offshore: "Topup Fees (Offshore)",
+  withdraw_fees: "Withdraw Fees",
+  swap_fees: "Swap Fees",
+  shipping_revenue: "Shipping Revenue",
+};
+
+type VpayAmountNode = {
+  amount?: string;
+};
+
+type VpayStatsPayload = {
+  revenue?: Record<string, VpayAmountNode>;
+  profit?: Record<string, VpayAmountNode>;
+};
+
+type VpayTreasuryPayload = {
+  balance?: string;
+  currency?: string;
+  account_id?: string;
+};
+
+type VpayFeeCollectorPayload = {
+  total_value_usd?: string;
+  address?: string;
+};
 
 function isBtcPlaceholderEarning(source: string): boolean {
   return /\b1\s*btc\b/i.test(source);
+}
+
+function parseAmountToCents(input: unknown): number | null {
+  if (typeof input === "number") {
+    return Number.isFinite(input) ? Math.round(input * 100) : null;
+  }
+  if (typeof input !== "string") return null;
+  const normalized = input.trim();
+  if (!normalized || normalized === "-") return null;
+  const parsed = Number.parseFloat(normalized.replaceAll(",", ""));
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed * 100);
+}
+
+async function fetchVpayJson<T>(path: string, apiKey: string): Promise<T | null> {
+  if (!apiKey) return null;
+  try {
+    const response = await fetch(`${VPAY_API_BASE}${path}`, {
+      headers: {
+        "X-API-Key": apiKey,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+function buildAppStats(
+  statsPayload: VpayStatsPayload | null,
+  treasuryPayload: VpayTreasuryPayload | null,
+  feeCollectorPayload: VpayFeeCollectorPayload | null,
+): AnalyticsResponse["appStats"] {
+  const revenue = statsPayload?.revenue ?? {};
+  const profit = statsPayload?.profit ?? {};
+  const dynamicKeys = Array.from(
+    new Set([...Object.keys(revenue), ...Object.keys(profit)].filter((key) => key !== "total")),
+  );
+  const orderedKeys = [...VPAY_SOURCE_ORDER.filter((key) => dynamicKeys.includes(key)), ...dynamicKeys.filter((key) => !VPAY_SOURCE_ORDER.includes(key as (typeof VPAY_SOURCE_ORDER)[number]))];
+
+  const sources = orderedKeys.map((key) => ({
+    key,
+    label: VPAY_SOURCE_LABEL[key] ?? key.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+    profitCents: parseAmountToCents(profit[key]?.amount),
+    revenueCents: parseAmountToCents(revenue[key]?.amount),
+  }));
+
+  const revenueTotalFromPayload = parseAmountToCents(revenue.total?.amount);
+  const profitTotalFromPayload = parseAmountToCents(profit.total?.amount);
+  const revenueCents = revenueTotalFromPayload ?? sources.reduce((sum, row) => sum + (row.revenueCents ?? 0), 0);
+  const profitCents = profitTotalFromPayload ?? sources.reduce((sum, row) => sum + (row.profitCents ?? 0), 0);
+
+  return {
+    available: Boolean(statsPayload || treasuryPayload || feeCollectorPayload),
+    sources,
+    totals: {
+      profitCents,
+      revenueCents,
+    },
+    treasury: {
+      balanceCents: parseAmountToCents(treasuryPayload?.balance),
+      currency: treasuryPayload?.currency ?? null,
+      accountId: treasuryPayload?.account_id ?? null,
+    },
+    feeCollector: {
+      balanceCents: parseAmountToCents(feeCollectorPayload?.total_value_usd),
+      address: feeCollectorPayload?.address ?? null,
+    },
+  };
 }
 
 async function fetchBtcPriceCents(): Promise<number> {
@@ -60,7 +173,8 @@ export async function GET(request: Request) {
   const actorEmail = await getAuthorizedEmailFromRequest(request);
   if (!actorEmail) return unauthorizedResponse();
 
-  const [earnings, expenses, payouts, btcPriceCents] = await Promise.all([
+  const vpayApiKey = process.env.VPAY_ADMIN_API_KEY?.trim() ?? "";
+  const [earnings, expenses, payouts, btcPriceCents, statsPayload, treasuryPayload, feeCollectorPayload] = await Promise.all([
     prisma.earning.findMany({
       where: { deletedAt: null },
       orderBy: { receivedDate: "desc" },
@@ -74,7 +188,11 @@ export async function GET(request: Request) {
       orderBy: { paidDate: "desc" },
     }),
     fetchBtcPriceCents(),
+    fetchVpayJson<VpayStatsPayload>("/dashboard/stats", vpayApiKey),
+    fetchVpayJson<VpayTreasuryPayload>("/treasury/treasury-balance", vpayApiKey),
+    fetchVpayJson<VpayFeeCollectorPayload>("/treasury/fee-collector-balances", vpayApiKey),
   ]);
+  const appStats = buildAppStats(statsPayload, treasuryPayload, feeCollectorPayload);
 
   const btcPlaceholderRow = earnings.find(
     (row) => row.receiver === Person.TREASURY && isBtcPlaceholderEarning(row.source),
@@ -227,6 +345,7 @@ export async function GET(request: Request) {
     monthly,
     recentActivity,
     teamEarnings,
+    appStats,
   };
 
   return NextResponse.json(response);

@@ -3,15 +3,11 @@
 import type { EarningCategory, Person } from "@prisma/client";
 import { usePrivy } from "@privy-io/react-auth";
 import {
-  Bar,
-  BarChart,
   Cell,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis,
 } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 
@@ -32,6 +28,17 @@ const PERSON_COLORS: Record<Person, string> = {
   MIKE: "#FBBF24",
   MOGAII: "#F472B6",
   TREASURY: "#34D399",
+};
+
+const APP_STATS_SOURCE_COLORS: Record<string, string> = {
+  virtual_cards: "#3B82F6",
+  offshore_accounts: "#06B6D4",
+  additional_cards: "#6366F1",
+  topup_fees_virtual: "#22C55E",
+  topup_fees_offshore: "#14B8A6",
+  withdraw_fees: "#F97316",
+  swap_fees: "#EAB308",
+  shipping_revenue: "#A855F7",
 };
 
 const chartTooltipStyle = {
@@ -79,6 +86,12 @@ function parseAmountToCents(input: string): number | null {
   const parsed = Number.parseFloat(trimmed);
   if (!Number.isFinite(parsed)) return null;
   return Math.round(parsed * 100);
+}
+
+function maskMiddle(value: string | null): string {
+  if (!value) return "N/A";
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
 
 export function DashboardClient() {
@@ -201,29 +214,66 @@ export function DashboardClient() {
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="flex flex-col">
-          <h3 className="mb-4 text-[13px] font-semibold text-white/80">Monthly Cash Flow</h3>
-          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 h-full min-h-[520px] flex flex-col">
-            <div className="flex-1 min-h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.monthly}>
-                  <XAxis dataKey="label" tick={{ fill: "#777", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fill: "#777", fontSize: 9 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={46}
-                    tickFormatter={(value: number) => `$${Math.round(value / 10000)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={formatTooltipCurrency}
-                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
-                  />
-                  <Bar dataKey="earningsCents" fill="#4A9EFF" radius={[4, 4, 4, 4]} />
-                  <Bar dataKey="expensesCents" fill="#F87171" radius={[4, 4, 4, 4]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <h3 className="mb-4 text-[13px] font-semibold text-white/80">App Stats</h3>
+          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 h-full min-h-[520px]">
+            {data.appStats.available ? (
+              <>
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-[#777]">Treasury Balance</p>
+                    <p className="mt-1 text-[20px] font-semibold text-white/95">
+                      {formatCurrency(data.appStats.treasury.balanceCents ?? 0)}
+                    </p>
+                    <p className="mt-1 truncate text-[10px] text-[#666]">{maskMiddle(data.appStats.treasury.accountId)}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-[#777]">Fee Collector</p>
+                    <p className="mt-1 text-[20px] font-semibold text-white/95">
+                      {formatCurrency(data.appStats.feeCollector.balanceCents ?? 0)}
+                    </p>
+                    <p className="mt-1 truncate text-[10px] text-[#666]">{maskMiddle(data.appStats.feeCollector.address)}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-white/[0.04]">
+                  <div className="grid grid-cols-[1.6fr_0.7fr_0.7fr] border-b border-white/[0.04] bg-white/[0.015] px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-[#777]">
+                    <span>Source</span>
+                    <span className="text-right">Profit</span>
+                    <span className="text-right">Revenue</span>
+                  </div>
+                  {data.appStats.sources.map((row) => (
+                    <div
+                      key={row.key}
+                      className="grid grid-cols-[1.6fr_0.7fr_0.7fr] items-center border-b border-white/[0.03] px-3 py-2.5 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: APP_STATS_SOURCE_COLORS[row.key] ?? "#9CA3AF" }}
+                        />
+                        <span className="text-[12px] text-white/90">{row.label}</span>
+                      </div>
+                      <span className="text-right text-[12px] font-medium text-white/90">
+                        {row.profitCents === null ? "—" : formatCurrency(row.profitCents)}
+                      </span>
+                      <span className="text-right text-[12px] font-medium text-white/90">
+                        {row.revenueCents === null ? "—" : formatCurrency(row.revenueCents)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid grid-cols-[1.6fr_0.7fr_0.7fr] items-center border-t border-white/[0.04] px-3 pt-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#9aa4b2]">Total</span>
+                  <span className="text-right text-[13px] font-semibold text-white">{formatCurrency(data.appStats.totals.profitCents)}</span>
+                  <span className="text-right text-[13px] font-semibold text-white">{formatCurrency(data.appStats.totals.revenueCents)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full min-h-[180px] items-center justify-center rounded-xl border border-dashed border-white/[0.08] text-[12px] text-[#777]">
+                Add `VPAY_ADMIN_API_KEY` to load app stats.
+              </div>
+            )}
           </div>
         </div>
 

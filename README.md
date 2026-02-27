@@ -5,6 +5,7 @@ Accounting dashboard for vPay co-founders with:
 - Whitelisted Privy auth
 - Earnings + expenses + payouts management (create/edit + soft-delete + audit log)
 - Financial analytics (totals, holdings, team balances, team earnings, category split, monthly charts, recent activity)
+- App stats panel (live profit/revenue + treasury and fee collector balances from vPay admin API)
 - One-time Google Sheets import bootstrap
 
 ## Stack
@@ -23,11 +24,13 @@ PRIVY_APP_ID=
 NEXT_PUBLIC_PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 PRIVY_VERIFICATION_KEY=
+VPAY_ADMIN_API_KEY=
 DATABASE_URL=
 DIRECT_URL=
 ```
 
 `PRIVY_APP_ID` is required. `NEXT_PUBLIC_PRIVY_APP_ID` is optional.
+`VPAY_ADMIN_API_KEY` is optional but required for the App Stats panel.
 
 ## Local setup
 
