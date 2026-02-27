@@ -2,7 +2,7 @@
 
 import type { EarningCategory, Person } from "@prisma/client";
 import { usePrivy } from "@privy-io/react-auth";
-import { Check, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Download, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -97,6 +97,7 @@ export function ManageClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const sortedEarnings = useMemo(
     () => [...earnings].sort((a, b) => b.receivedDate.localeCompare(a.receivedDate)),
@@ -401,6 +402,38 @@ export function ManageClient() {
     setMessage("Payout archived.");
   }
 
+  async function exportAllData() {
+    clearStatus();
+    setExporting(true);
+    try {
+      const response = await authedFetch("/api/export");
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to export data.");
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = disposition.match(/filename=\"([^\"]+)\"/i);
+      const filename = filenameMatch?.[1] ?? `vpay-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setMessage("Export downloaded.");
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "Could not export data.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (loading) {
     return <div className="p-8 text-sm text-[#9b9b9b]">Loading entries...</div>;
   }
@@ -412,43 +445,54 @@ export function ManageClient() {
           <h1 className="text-[28px] font-bold tracking-[-0.03em] text-white">Manage</h1>
           <p className="text-[12px] text-[#888]">Add and edit earnings, expenses, and payouts</p>
         </div>
-        <div className="flex gap-1 rounded-full bg-white/[0.04] p-[3px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-full bg-white/[0.04] p-[3px]">
+            <button
+              type="button"
+              onClick={() => setActiveTab("earnings")}
+              className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
+                activeTab === "earnings" ? "text-white" : "text-[#777] hover:text-[#aaa]"
+              }`}
+              style={
+                activeTab === "earnings"
+                  ? {
+                      background: "linear-gradient(135deg, #4A9EFF, #7C5CFF)",
+                      boxShadow: "0 0 18px rgba(74,158,255,0.25)",
+                    }
+                  : undefined
+              }
+            >
+              Earnings
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("expenses")}
+              className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
+                activeTab === "expenses" ? "text-white" : "text-[#777] hover:text-[#aaa]"
+              }`}
+              style={activeTab === "expenses" ? { background: "#F87171", boxShadow: "0 0 18px rgba(248,113,113,0.2)" } : undefined}
+            >
+              Expenses
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("payouts")}
+              className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
+                activeTab === "payouts" ? "text-white" : "text-[#777] hover:text-[#aaa]"
+              }`}
+              style={activeTab === "payouts" ? { background: "#34D399", boxShadow: "0 0 18px rgba(52,211,153,0.2)" } : undefined}
+            >
+              Payouts
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setActiveTab("earnings")}
-            className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
-              activeTab === "earnings" ? "text-white" : "text-[#777] hover:text-[#aaa]"
-            }`}
-            style={
-              activeTab === "earnings"
-                ? {
-                    background: "linear-gradient(135deg, #4A9EFF, #7C5CFF)",
-                    boxShadow: "0 0 18px rgba(74,158,255,0.25)",
-                  }
-                : undefined
-            }
+            onClick={() => void exportAllData()}
+            disabled={exporting}
+            className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-[11px] font-semibold text-white/90 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Earnings
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("expenses")}
-            className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
-              activeTab === "expenses" ? "text-white" : "text-[#777] hover:text-[#aaa]"
-            }`}
-            style={activeTab === "expenses" ? { background: "#F87171", boxShadow: "0 0 18px rgba(248,113,113,0.2)" } : undefined}
-          >
-            Expenses
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("payouts")}
-            className={`rounded-full px-5 py-1.5 text-[11px] font-medium transition-all ${
-              activeTab === "payouts" ? "text-white" : "text-[#777] hover:text-[#aaa]"
-            }`}
-            style={activeTab === "payouts" ? { background: "#34D399", boxShadow: "0 0 18px rgba(52,211,153,0.2)" } : undefined}
-          >
-            Payouts
+            <Download className="h-3.5 w-3.5" />
+            {exporting ? "Exporting..." : "Export XLSX"}
           </button>
         </div>
       </div>

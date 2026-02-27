@@ -200,34 +200,36 @@ export function DashboardClient() {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div>
+        <div className="flex flex-col">
           <h3 className="mb-4 text-[13px] font-semibold text-white/80">Monthly Cash Flow</h3>
-          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 min-h-[360px]">
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={data.monthly}>
-                <XAxis dataKey="label" tick={{ fill: "#777", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: "#777", fontSize: 9 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={46}
-                  tickFormatter={(value: number) => `$${Math.round(value / 10000)}k`}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={formatTooltipCurrency}
-                  cursor={{ fill: "rgba(255,255,255,0.02)" }}
-                />
-                <Bar dataKey="earningsCents" fill="#4A9EFF" radius={[4, 4, 4, 4]} />
-                <Bar dataKey="expensesCents" fill="#F87171" radius={[4, 4, 4, 4]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 h-full min-h-[520px] flex flex-col">
+            <div className="flex-1 min-h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.monthly}>
+                  <XAxis dataKey="label" tick={{ fill: "#777", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: "#777", fontSize: 9 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={46}
+                    tickFormatter={(value: number) => `$${Math.round(value / 10000)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={formatTooltipCurrency}
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                  />
+                  <Bar dataKey="earningsCents" fill="#4A9EFF" radius={[4, 4, 4, 4]} />
+                  <Bar dataKey="expensesCents" fill="#F87171" radius={[4, 4, 4, 4]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
-        <div>
+        <div className="flex flex-col">
           <h3 className="mb-4 text-[13px] font-semibold text-white/80">Revenue Split</h3>
-          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4">
+          <div className="rounded-2xl border border-white/[0.03] bg-[#282828]/60 p-4 h-full">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={data.categorySplit} dataKey="amountCents" innerRadius={48} outerRadius={80} paddingAngle={3}>
