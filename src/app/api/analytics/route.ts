@@ -99,7 +99,6 @@ export async function GET(request: Request) {
     treasuryCents: 0,
   };
   totals.netCents = totals.earningsCents - totals.expensesCents - totals.payoutsCents;
-  totals.treasuryCents = totals.netCents;
 
   const perPersonMap = new Map<Person, { earningsCents: number; expensesCents: number }>();
   (Object.values(Person) as Person[]).forEach((person) => {
@@ -120,6 +119,7 @@ export async function GET(request: Request) {
   if (treasury) {
     treasury.earningsCents += syntheticBtcEarningCents;
     treasury.earningsCents -= totals.payoutsCents;
+    totals.treasuryCents = treasury.earningsCents - treasury.expensesCents;
   }
 
   const perPerson = Array.from(perPersonMap.entries()).map(([person, values]) => ({
