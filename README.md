@@ -46,6 +46,7 @@ App routes:
 
 - `/dashboard` analytics
 - `/manage` transaction management
+- `/logs` audit trail
 - `/login` sign-in
 
 ## Data import behavior
@@ -66,4 +67,4 @@ App routes:
 ## Notes
 
 - Expenses with blank dates are imported as undated and excluded from monthly charts.
-- Only whitelisted + active emails can access `/dashboard` and `/manage`.
+- Only whitelisted + active emails can access `/dashboard`, `/manage`, and `/logs`.

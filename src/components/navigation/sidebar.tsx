@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, LogOut, Settings } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
@@ -49,6 +49,13 @@ export function Sidebar({ email }: { email: string }) {
           ) : null}
           <Settings className="h-[15px] w-[15px]" />
           <span>Manage</span>
+        </Link>
+        <Link href="/logs" className={navClass(pathname.startsWith("/logs"))}>
+          {pathname.startsWith("/logs") ? (
+            <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#4A9EFF] to-[#7C5CFF]" />
+          ) : null}
+          <ClipboardList className="h-[15px] w-[15px]" />
+          <span>Logs</span>
         </Link>
       </nav>
 
@@ -123,6 +130,15 @@ export function MobileTabNav() {
       >
         <Settings className="h-4 w-4" />
         Manage
+      </Link>
+      <Link
+        href="/logs"
+        className={`flex flex-1 items-center justify-center gap-2 py-3 text-[12px] ${
+          pathname.startsWith("/logs") ? "text-white" : "text-[#8a8a8a]"
+        }`}
+      >
+        <ClipboardList className="h-4 w-4" />
+        Logs
       </Link>
     </nav>
   );

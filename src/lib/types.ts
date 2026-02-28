@@ -128,3 +128,19 @@ export interface AnalyticsResponse {
     };
   };
 }
+
+export interface AuditLogChange {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  createdAt: string;
+  actorEmail: string;
+  entityType: "EARNING" | "EXPENSE" | "PAYOUT" | "ALLOWED_EMAIL";
+  action: "CREATE" | "UPDATE" | "SOFT_DELETE" | "RESTORE";
+  entityId: string;
+  changes: AuditLogChange[];
+}
